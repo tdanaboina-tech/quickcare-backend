@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>QuickCare — Book Your Appointment</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Fraunces:ital,wght@0,300;0,600;1,300&display=swap" rel="stylesheet"/>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<style>
+:root{
+  --g1:#0a1628;--g2:#0d2137;--g3:#112a45;
+  --teal:#00c9a7;--teal-d:#00a085;--teal-p:rgba(0,201,167,.12);
+  --gold:#f5c542;--red:#ff6b6b;--red-p:rgba(255,107,107,.12);
+  --white:#fff;--off:#f4f7f9;--border:rgba(255,255,255,.1);
+  --text:#e8edf2;--muted:rgba(232,237,242,.55);
+  --card:rgba(255,255,255,.04);--card-h:rgba(255,255,255,.07);
+  --radius:14px;--mono:'Courier New',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--g1);color:var(--text);min-height:100vh}
+.page{max-width:680px;margin:0 auto;padding:40px 24px 80px}
+.site-header{text-align:center;margin-bottom:48px}
+.logo-pill{display:inline-flex;align-items:center;gap:8px;background:var(--teal-p);border:1px solid rgba(0,201,167,.3);border-radius:30px;padding:6px 16px 6px 8px;margin-bottom:24px}
+.logo-cross{width:28px;height:28px;background:var(--teal);border-radius:8px;display:flex;align-items:center;justify-content:center}
+.logo-cross svg{width:14px;height:14px}
+.logo-pill span{font-size:13px;font-weight:600;color:var(--teal)}
+.site-title{font-family:'Fraunces',serif;font-size:42px;font-weight:300;color:var(--white);letter-spacing:-.5px;line-height:1.15;margin-bottom:10px}
+.site-title em{font-style:italic;color:var(--teal)}
+.site-sub{font-size:15px;color:var(--muted);font-weight:300;line-height:1.6}
+.tabs{display:flex;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:4px;margin-bottom:32px}
+.tab-btn{flex:1;padding:10px;border:none;background:none;color:var(--muted);font-size:13px;font-weight:500;border-radius:10px;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;transition:all .2s}
+.tab-btn.active{background:var(--teal);color:#000;font-weight:600}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:28px;margin-bottom:20px}
+.card-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--teal);margin-bottom:20px}
+.field{margin-bottom:18px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:7px}
+.field input,.field select,.field textarea{width:100%;padding:12px 16px;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.12);border-radius:10px;font-size:14px;font-family:'Plus Jakarta Sans',sans-serif;color:var(--text);outline:none;transition:border-color .2s}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--teal);background:rgba(0,201,167,.06)}
+.field select option{background:#1a2f45;color:var(--text)}
+.field textarea{resize:none;height:80px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.date-strip{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;scrollbar-width:none}
+.date-strip::-webkit-scrollbar{display:none}
+.date-btn{flex-shrink:0;width:56px;padding:10px 6px;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.1);border-radius:10px;text-align:center;cursor:pointer;transition:all .2s}
+.date-btn:hover{border-color:rgba(0,201,167,.5)}
+.date-btn.active{background:var(--teal);border-color:var(--teal)}
+.date-btn.active .d-day,.date-btn.active .d-num{color:#000}
+.d-day{font-size:10px;color:var(--muted);margin-bottom:3px;display:block}
+.d-num{font-size:18px;font-weight:600;color:var(--text);display:block}
+.slots-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
+.slot-btn{padding:10px 4px;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.1);border-radius:9px;font-size:12px;font-family:var(--mono);color:var(--text);cursor:pointer;text-align:center;transition:all .2s}
+.slot-btn:hover:not(.full):not(.blocked){border-color:rgba(0,201,167,.5);background:var(--teal-p)}
+.slot-btn.selected{background:var(--teal);border-color:var(--teal);color:#000;font-weight:700}
+.slot-btn.full{opacity:.4;cursor:not-allowed;text-decoration:line-through}
+.slot-btn.blocked{opacity:.3;cursor:not-allowed;background:rgba(255,107,107,.08);border-color:rgba(255,107,107,.2)}
+.slot-meta{font-size:10px;margin-top:3px;color:var(--muted)}
+.slot-btn.selected .slot-meta{color:rgba(0,0,0,.6)}
+.slot-btn.full .slot-meta{color:var(--red)}
+.pay-methods{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+.pay-opt{padding:14px;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.1);border-radius:10px;cursor:pointer;text-align:center;transition:all .2s}
+.pay-opt:hover{border-color:rgba(0,201,167,.4)}
+.pay-opt.selected{border-color:var(--teal);background:var(--teal-p)}
+.pay-icon{font-size:24px;display:block;margin-bottom:5px}
+.pay-label{font-size:12px;font-weight:600;color:var(--text)}
+.pay-sub{font-size:10px;color:var(--muted);margin-top:2px}
+.upi-input{margin-top:12px}
+.btn{width:100%;padding:15px;border:none;border-radius:10px;font-size:15px;font-weight:700;font-family:'Plus Jakarta Sans',sans-serif;cursor:pointer;transition:all .2s}
+.btn-teal{background:var(--teal);color:#000}
+.btn-teal:hover{background:var(--teal-d)}
+.btn-teal:disabled{opacity:.4;cursor:not-allowed}
+.btn-outline{background:transparent;border:1.5px solid rgba(255,255,255,.2);color:var(--text)}
+.btn-outline:hover{border-color:var(--teal);color:var(--teal)}
+.btn-red{background:var(--red-p);border:1.5px solid rgba(255,107,107,.3);color:var(--red)}
+.btn-red:hover{background:rgba(255,107,107,.2)}
+.btn-sm{padding:8px 16px;width:auto;font-size:13px;border-radius:8px}
+.dept-chips{display:flex;flex-wrap:wrap;gap:8px}
+.dept-chip{padding:8px 14px;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.1);border-radius:20px;font-size:13px;cursor:pointer;transition:all .2s;color:var(--text)}
+.dept-chip:hover:not(.off){border-color:rgba(0,201,167,.5)}
+.dept-chip.selected{background:var(--teal-p);border-color:var(--teal);color:var(--teal)}
+.dept-chip.off{opacity:.4;cursor:not-allowed;text-decoration:line-through}
+.dept-chip .chip-dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:middle}
+.section{display:none}
+.section.active{display:block}
+.token-display{font-family:var(--mono);font-size:32px;font-weight:700;color:var(--teal);text-align:center;background:var(--teal-p);border:2px solid rgba(0,201,167,.3);border-radius:12px;padding:20px;margin:16px 0;letter-spacing:3px}
+.notice{padding:12px 16px;border-radius:10px;font-size:13px;line-height:1.55;margin-bottom:14px}
+.notice.info{background:rgba(0,201,167,.1);border:1px solid rgba(0,201,167,.2);color:#7fefd9}
+.notice.warn{background:rgba(245,197,66,.1);border:1px solid rgba(245,197,66,.2);color:#f5c542}
+.notice.error{background:var(--red-p);border:1px solid rgba(255,107,107,.25);color:#ff9999}
+.appt-detail-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.07);font-size:14px}
+.appt-detail-row:last-child{border:none}
+.appt-detail-row .lbl{color:var(--muted);font-size:12px}
+.appt-detail-row .val{font-weight:500;color:var(--text)}
+.status-badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.sb-confirmed{background:rgba(0,201,167,.15);color:var(--teal)}
+.sb-cancelled{background:var(--red-p);color:var(--red)}
+.sb-postponed{background:rgba(245,197,66,.12);color:var(--gold)}
+@media(max-width:500px){.slots-grid{grid-template-columns:repeat(3,1fr)}.field-row{grid-template-columns:1fr}.pay-methods{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="site-header">
+    <div class="logo-pill">
+      <div class="logo-cross"><svg viewBox="0 0 14 14" fill="none"><rect x="5" y="0" width="4" height="14" rx="2" fill="white"/><rect x="0" y="5" width="14" height="4" rx="2" fill="white"/></svg></div>
+      <span>QuickCare System</span>
+    </div>
+    <h1 class="site-title">Book your<br/><em>appointment</em></h1>
+    <p class="site-sub">Choose a doctor, pick a slot, confirm in seconds.<br/>No calls. No queues.</p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showTab('book',this)">📅 Book appointment</button>
+    <button class="tab-btn" onclick="showTab('manage',this)">✏️ Change / Cancel</button>
+  </div>
+
+  <div id="tab-book" class="section active">
+    <div class="card" id="step1">
+      <div class="card-title">Step 1 — Choose department</div>
+      <div class="dept-chips" id="deptChips">Loading…</div>
+    </div>
+
+    <div class="card" id="step2" style="display:none">
+      <div class="card-title">Step 2 — Pick a date & time</div>
+      <div class="field" style="margin-bottom:14px">
+        <label>Date</label>
+        <div class="date-strip" id="dateStrip"></div>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>Available slots — <span id="selectedDeptLabel" style="color:var(--teal)"></span></label>
+        <div class="slots-grid" id="slotsGrid"></div>
+      </div>
+    </div>
+
+    <div class="card" id="step3" style="display:none">
+      <div class="card-title">Step 3 — Your details</div>
+      <div class="field-row">
+        <div class="field"><label>Full name</label><input id="p_name" type="text" placeholder="Ravi Kumar"/></div>
+        <div class="field"><label>Phone</label><input id="p_phone" type="tel" placeholder="98765 43210"/></div>
+      </div>
+      <div class="field"><label>Question for the doctor? (optional)</label><textarea id="p_question" placeholder="e.g. Should I fast before my appointment?"></textarea></div>
+    </div>
+
+    <div class="card" id="step4" style="display:none">
+      <div class="card-title">Step 4 — Consultation fee payment</div>
+      <div class="notice info">💡 Paying online reserves your slot. You can also choose to pay at the hospital.</div>
+      <div class="pay-methods">
+        <div class="pay-opt selected" id="pay-upi" onclick="selectPay('upi')"><span class="pay-icon">📲</span><div class="pay-label">UPI</div><div class="pay-sub">PhonePe, GPay, Paytm</div></div>
+        <div class="pay-opt" id="pay-card" onclick="selectPay('card')"><span class="pay-icon">💳</span><div class="pay-label">Card</div><div class="pay-sub">Debit or credit card</div></div>
+        <div class="pay-opt" id="pay-hospital" onclick="selectPay('hospital')"><span class="pay-icon">🏥</span><div class="pay-label">Pay at hospital</div><div class="pay-sub">Cash, UPI, card</div></div>
+        <div class="pay-opt" id="pay-insurance" onclick="selectPay('insurance')"><span class="pay-icon">🛡️</span><div class="pay-label">Insurance</div><div class="pay-sub">Cashless claim</div></div>
+      </div>
+      <div id="pay-upi-form" class="upi-input">
+        <div class="field"><label>UPI ID</label><input id="upi_id" type="text" placeholder="yourname@paytm"/></div>
+      </div>
+      <div id="pay-card-form" class="upi-input" style="display:none">
+        <div class="field"><label>Card number</label><input id="card_num" type="text" placeholder="1234 5678 9012 3456" maxlength="19"/></div>
+        <div class="field-row">
+          <div class="field"><label>Expiry</label><input id="card_exp" type="text" placeholder="MM/YY" maxlength="5"/></div>
+          <div class="field"><label>CVV</label><input id="card_cvv" type="password" placeholder="•••" maxlength="3"/></div>
+        </div>
+      </div>
+      <div id="pay-insurance-form" class="upi-input" style="display:none">
+        <div class="field"><label>Insurance policy number</label><input type="text" placeholder="POL-XXXXXXX"/></div>
+        <div class="field"><label>Provider</label><input type="text" placeholder="Star Health, HDFC Ergo…"/></div>
+      </div>
+      <div style="margin-top:4px;padding:14px;background:rgba(255,255,255,.04);border-radius:10px;font-size:13px;color:var(--muted);margin-bottom:16px" id="bookingSummary"></div>
+      <button class="btn btn-teal" onclick="confirmBooking()">Confirm &amp; Pay →</button>
+    </div>
+
+    <div class="card" id="step-done" style="display:none;text-align:center">
+      <div class="card-title" style="text-align:center">Booking confirmed ✓</div>
+      <p style="color:var(--muted);font-size:14px;margin-bottom:6px">Your appointment token</p>
+      <div class="token-display" id="confirmedToken">T001</div>
+      <p style="color:var(--muted);font-size:13px;margin-bottom:24px">Show this at reception when you arrive. Screenshot or note it down.</p>
+      <div style="background:rgba(255,255,255,.04);border-radius:10px;padding:16px;text-align:left;margin-bottom:20px;font-size:14px" id="confirmDetails"></div>
+      <button class="btn btn-outline" onclick="resetBooking()">Book another appointment</button>
+    </div>
+  </div>
+
+  <div id="tab-manage" class="section">
+    <div class="card">
+      <div class="card-title">Find your appointment</div>
+      <div class="field"><label>Your booking token or phone number</label><input id="lookup_val" type="text" placeholder="T001 or 98765 43210"/></div>
+      <button class="btn btn-teal" onclick="lookupBooking()">Find appointment →</button>
+    </div>
+    <div id="manage-result"></div>
+  </div>
+</div>
+
+<script>
+// ── NETWORKING ENVIRONMENT ENGINE CONFIG
+const BACKEND_URL = 'http://localhost:3000';
+const socket = io(BACKEND_URL);
+
+const SLOT_HOURS=['09:00','10:00','11:00','12:00','14:00','15:00','16:00','17:00','18:00'];
+const MAX_PER_SLOT=10;
+
+let selDept='',selDate='',selSlot='',selPay='upi';
+let bookingDone=null;
+
+function fmtSlot(h){
+  const [hr,mn]=h.split(':').map(Number);
+  const suffix=hr<12?'AM':'PM';
+  const d=hr%12||12;
+  return `${d}:${mn.toString().padStart(2,'0')} ${suffix}`;
+}
+
+async function getSlotCount(dept,dateStr,slot){
+  const res = await fetch(`${BACKEND_URL}/api/appointments`);
+  const appts = await res.json();
+  return appts.filter(a=>a.dept===dept&&a.date===dateStr&&a.time===slot&&a.status==='Confirmed').length;
+}
+
+async function isBlocked(dept,slot){
+  const res = await fetch(`${BACKEND_URL}/api/doctors`);
+  const docs = await res.json();
+  const doc=docs.find(d=>d.dept===dept);
+  return doc&&doc.blockedSlots&&doc.blockedSlots.includes(slot);
+}
+
+function buildDateStrip(){
+  const strip=document.getElementById('dateStrip');
+  strip.innerHTML='';
+  const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  for(let i=0;i<14;i++){
+    const d=new Date(); d.setDate(d.getDate()+i);
+    const iso=d.toISOString().split('T')[0];
+    const btn=document.createElement('div');
+    btn.className='date-btn'+(i===0?' active':'');
+    btn.dataset.date=iso;
+    btn.innerHTML=`<span class="d-day">${days[d.getDay()]}</span><span class="d-num">${d.getDate()}</span>`;
+    btn.onclick=()=>{selDate=iso;document.querySelectorAll('.date-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderSlots();};
+    strip.appendChild(btn);
+  }
+  selDate=new Date().toISOString().split('T')[0];
+}
+
+async function renderDeptChips(){
+  const res = await fetch(`${BACKEND_URL}/api/doctors`);
+  const docs = await res.json();
+  const container=document.getElementById('deptChips');
+  const depts=['Cardiology','Orthopaedics','Neurology','Ophthalmology','Dental','General Medicine','Paediatrics','Dermatology'];
+  const emojis={Cardiology:'❤️',Orthopaedics:'🦴',Neurology:'🧠',Ophthalmology:'👁️',Dental:'🦷','General Medicine':'🩺',Paediatrics:'👶',Dermatology:'🔬'};
+  container.innerHTML=depts.map(dept=>{
+    const doc=docs.find(d=>d.dept===dept);
+    const on=doc&&doc.available;
+    return `<div class="dept-chip ${selDept===dept?'selected':''} ${on?'':'off'}" onclick="${on?`selectDept('${dept}')`:''}">
+      <span class="chip-dot" style="background:${on?'#00c9a7':'#555'}"></span>${emojis[dept]||''} ${dept}${!on?' (unavailable)':''}
+    </div>`;
+  }).join('');
+}
+
+function selectDept(dept){
+  selDept=dept; selSlot='';
+  renderDeptChips();
+  document.getElementById('selectedDeptLabel').textContent=dept;
+  document.getElementById('step2').style.display='block';
+  document.getElementById('step3').style.display='none';
+  document.getElementById('step4').style.display='none';
+  buildDateStrip();
+  renderSlots();
+  document.getElementById('step2').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+async function renderSlots(){
+  const grid=document.getElementById('slotsGrid');
+  const res = await fetch(`${BACKEND_URL}/api/doctors`);
+  const docs = await res.json();
+  const doc=docs.find(d=>d.dept===selDept);
+  if(!doc||!doc.available){grid.innerHTML='<div style="font-size:13px;color:var(--muted);grid-column:1/-1">This department is unavailable today.</div>';return;}
+  
+  let htmlArray = [];
+  for(let slot of SLOT_HOURS) {
+    const blocked = doc.blockedSlots && doc.blockedSlots.includes(slot);
+    const count = await getSlotCount(selDept, selDate, slot);
+    const full = count >= MAX_PER_SLOT;
+    const cls = `slot-btn${selSlot===slot?' selected':''}${full?' full':''}${blocked?' blocked':''}`;
+    const meta = blocked ? 'Blocked' : full ? 'Full' : `${MAX_PER_SLOT-count} left`;
+    htmlArray.push(`<button class="${cls}" onclick="selectSlot('${slot}')">${fmtSlot(slot)}<div class="slot-meta">${meta}</div></button>`);
+  }
+  grid.innerHTML = htmlArray.join('');
+}
+
+function selectSlot(slot){
+  selSlot=slot;
+  renderSlots();
+  document.getElementById('step3').style.display='block';
+  document.getElementById('step4').style.display='none';
+  document.getElementById('step3').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('step3').addEventListener('input',checkStep3);
+  renderDeptChips();
+});
+
+function checkStep3(){
+  const name=document.getElementById('p_name').value.trim();
+  const phone=document.getElementById('p_phone').value.trim();
+  if(name&&phone&&selSlot){
+    document.getElementById('step4').style.display='block';
+    updateSummary();
+  }
+}
+
+function updateSummary(){
+  const name=document.getElementById('p_name').value.trim();
+  const dateD=new Date(selDate+'T00:00:00');
+  const dateStr=dateD.toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('bookingSummary').innerHTML=
+    `<strong style="color:var(--text)">${name}</strong> &nbsp;·&nbsp; ${selDept}<br/>
+     📅 ${dateStr} &nbsp;·&nbsp; 🕐 ${fmtSlot(selSlot)}<br/>
+     💳 Payment: <span style="color:var(--teal)">${{upi:'UPI',card:'Card',hospital:'Pay at hospital',insurance:'Insurance'}[selPay]}</span>`;
+}
+
+function selectPay(method){
+  selPay=method;
+  ['upi','card','hospital','insurance'].forEach(m=>{
+    document.getElementById('pay-'+m).classList.toggle('selected',m===method);
+    const f=document.getElementById('pay-'+m+'-form');
+    if(f)f.style.display=m===method&&method!=='hospital'?'block':'none';
+  });
+  updateSummary();
+}
+
+async function confirmBooking(){
+  const name=document.getElementById('p_name').value.trim();
+  const phone=document.getElementById('p_phone').value.trim();
+  const question=document.getElementById('p_question').value.trim();
+  if(!name||!phone||!selDept||!selSlot||!selDate){alert('Please complete all steps.');return;}
+
+  const res = await fetch(`${BACKEND_URL}/api/doctors`);
+  const docs = await res.json();
+  const doc = docs.find(d=>d.dept===selDept);
+
+  const appt={name,phone,dept:selDept,doctor:doc?doc.name:'',date:selDate,time:selSlot,question,payment:selPay,status:'Confirmed'};
+
+  const postRes = await fetch(`${BACKEND_URL}/api/appointments`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(appt)
+  });
+  
+  const savedAppt = await postRes.json();
+  bookingDone = savedAppt;
+  showConfirmation(savedAppt);
+}
+
+function showConfirmation(appt){
+  ['step1','step2','step3','step4'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  const done=document.getElementById('step-done');
+  done.style.display='block';
+  document.getElementById('confirmedToken').textContent=appt.token;
+  const dateD=new Date(appt.date+'T00:00:00');
+  const dateStr=dateD.toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('confirmDetails').innerHTML=`
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Doctor</span><span>${appt.doctor}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Department</span><span>${appt.dept}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Date</span><span>${dateStr}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Time</span><span>${fmtSlot(appt.time)}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Payment</span><span style="color:var(--teal)">${{upi:'UPI — Pending',card:'Card — Pending',hospital:'Pay at hospital',insurance:'Insurance — Cashless'}[appt.payment]}</span></div>
+    </div>`;
+  done.scrollIntoView({behavior:'smooth'});
+}
+
+function resetBooking(){
+  selDept='';selDate='';selSlot='';selPay='upi';bookingDone=null;
+  ['step2','step3','step4','step-done'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  document.getElementById('step1').style.display='block';
+  renderDeptChips();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function showTab(tab,btn){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  btn.classList.add('active');
+}
+
+async function lookupBooking(){
+  const val=document.getElementById('lookup_val').value.trim().toUpperCase();
+  const res = await fetch(`${BACKEND_URL}/api/appointments`);
+  const list = await res.json();
+  const appt=list.find(a=>a.token===val||a.phone.replace(/\s/g,'')===val.replace(/\s/g,''));
+  const targetRes=document.getElementById('manage-result');
+  if(!appt){
+    targetRes.innerHTML='<div class="notice error">No appointment found. Check your token or phone number.</div>';
+    return;
+  }
+  const dateD=new Date(appt.date+'T00:00:00');
+  const dateStr=dateD.toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const canChange=appt.status==='Confirmed';
+  targetRes.innerHTML=`
+    <div class="card">
+      <div class="card-title">Your appointment</div>
+      <div class="appt-detail-row"><span class="lbl">Token</span><span class="val" style="font-family:var(--mono);color:var(--teal)">${appt.token}</span></div>
+      <div class="appt-detail-row"><span class="lbl">Name</span><span class="val">${appt.name}</span></div>
+      <div class="appt-detail-row"><span class="lbl">Doctor</span><span class="val">${appt.doctor}</span></div>
+      <div class="appt-detail-row"><span class="lbl">Department</span><span class="val">${appt.dept}</span></div>
+      <div class="appt-detail-row"><span class="lbl">Date & Time</span><span class="val">${dateStr}, ${fmtSlot(appt.time)}</span></div>
+      <div class="appt-detail-row"><span class="lbl">Status</span><span class="status-badge ${appt.status==='Confirmed'?'sb-confirmed':appt.status==='Cancelled'?'sb-cancelled':'sb-postponed'}">${appt.status}</span></div>
+      ${canChange?`
+      <div style="margin-top:20px">
+        <div class="notice warn">⚠️ Rescheduling or cancelling cannot be undone. Please confirm before proceeding.</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" onclick="showReschedule('${appt.token}')">📅 Reschedule</button>
+          <button class="btn btn-red btn-sm" onclick="cancelAppt('${appt.token}')">✕ Cancel appointment</button>
+        </div>
+      </div>`:'<div class="notice info" style="margin-top:16px">This appointment cannot be modified.</div>'}
+    </div>
+    <div id="reschedule-panel"></div>`;
+}
+
+async function showReschedule(token){
+  const panel=document.getElementById('reschedule-panel');
+  const res = await fetch(`${BACKEND_URL}/api/appointments`);
+  const list = await res.json();
+  const appt=list.find(a=>a.token===token);
+  
+  let optionsArray = [];
+  for(let s of SLOT_HOURS) {
+    const cnt = await getSlotCount(appt.dept, appt.date, s);
+    const blocked = await isBlocked(appt.dept, s);
+    const full = cnt >= MAX_PER_SLOT;
+    optionsArray.push(`<option value="${s}" ${full||blocked?'disabled':''} ${s===appt.time?'selected':''}>${fmtSlot(s)}${full?' (full)':blocked?' (blocked)':''}</option>`);
+  }
+  
+  const days=[];
+  for(let i=0;i<14;i++){const d=new Date();d.setDate(d.getDate()+i);days.push(d.toISOString().split('T')[0]);}
+  const dateOpts=days.map(d=>`<option value="${d}" ${d===appt.date?'selected':''}>${new Date(d+'T00:00:00').toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'})}</option>`).join('');
+  panel.innerHTML=`
+    <div class="card">
+      <div class="card-title">Reschedule appointment</div>
+      <div class="field"><label>New date</label><select id="rs_date">${dateOpts}</select></div>
+      <div class="field"><label>New time slot</label><select id="rs_slot">${optionsArray.join('')}</select></div>
+      <div class="field"><label>Reason (optional)</label><textarea id="rs_reason" placeholder="e.g. Work conflict on original date"></textarea></div>
+      <button class="btn btn-teal" onclick="confirmReschedule('${token}')">Confirm reschedule →</button>
+    </div>`;
+}
+
+async function confirmReschedule(token){
+  const newDate=document.getElementById('rs_date').value;
+  const newSlot=document.getElementById('rs_slot').value;
+  const reason=document.getElementById('rs_reason').value.trim();
+  
+  await fetch(`${BACKEND_URL}/api/appointments/${token}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      date: newDate,
+      time: newSlot,
+      status: 'Postponed',
+      postponeReason: reason || 'No reason given',
+      rescheduledAt: new Date().toISOString()
+    })
+  });
+  
+  document.getElementById('manage-result').innerHTML='<div class="notice info">✅ Your appointment has been rescheduled. Your token <strong>'+token+'</strong> remains the same.</div>';
+  document.getElementById('reschedule-panel').innerHTML='';
+}
+
+async function cancelAppt(token){
+  if(!confirm('Are you sure you want to cancel your appointment? This cannot be undone.'))return;
+  await fetch(`${BACKEND_URL}/api/appointments/${token}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'Cancelled', cancelledAt: new Date().toISOString() })
+  });
+  document.getElementById('manage-result').innerHTML='<div class="notice error">Your appointment <strong>'+token+'</strong> has been cancelled.</div>';
+}
+
+// ── WEBSOCKET EVENT REFRESH PIPELINES
+socket.on('DOCTORS_UPDATE', () => { renderDeptChips(); if(selDept) renderSlots(); });
+socket.on('STATUS_UPDATE', () => { if(selDept) renderSlots(); });
+socket.on('NEW_APPOINTMENT', () => { if(selDept) renderSlots(); });
+</script>
+</body>
+</html>

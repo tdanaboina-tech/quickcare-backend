@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>QuickCare — Reception Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Fraunces:ital,wght@0,300;0,600&display=swap" rel="stylesheet"/>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<style>
+:root{
+  --g1:#0a1628;--g2:#0d2137;--g3:#112a45;
+  --teal:#00c9a7;--teal-d:#00a085;--teal-p:rgba(0,201,167,.12);
+  --gold:#f5c542;--red:#ff6b6b;--red-p:rgba(255,107,107,.12);
+  --white:#fff;--border:rgba(255,255,255,.1);
+  --text:#e8edf2;--muted:rgba(232,237,242,.55);
+  --card:rgba(255,255,255,.04);--card-h:rgba(255,255,255,.07);
+  --mono:'Courier New',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--g1);color:var(--text);min-height:100vh}
+.login-screen{position:fixed;inset:0;background:var(--g1);display:flex;align-items:center;justify-content:center;z-index:1000}
+.login-screen.hidden{display:none}
+.login-card{width:360px;background:var(--card);border:1px solid var(--border);border-radius:18px;padding:40px 36px}
+.login-logo{display:flex;align-items:center;gap:10px;margin-bottom:28px;justify-content:center}
+.login-cross{width:34px;height:34px;background:var(--teal);border-radius:9px;display:flex;align-items:center;justify-content:center}
+.login-cross svg{width:18px;height:18px}
+.login-title{font-family:'Fraunces',serif;font-size:22px;color:#fff;text-align:center;margin-bottom:6px}
+.login-sub{font-size:13px;color:var(--muted);text-align:center;margin-bottom:28px}
+.login-field{margin-bottom:16px}
+.login-field label{display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
+.login-field input{width:100%;padding:12px 16px;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.12);border-radius:10px;font-size:14px;color:var(--text);outline:none;font-family:'Plus Jakarta Sans',sans-serif;transition:border-color .2s}
+.login-field input:focus{border-color:var(--teal)}
+.login-btn{width:100%;padding:13px;background:var(--teal);color:#000;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-top:6px;font-family:'Plus Jakarta Sans',sans-serif}
+.login-btn:hover{background:var(--teal-d)}
+.login-error{font-size:12.5px;color:var(--red);text-align:center;margin-top:12px;display:none}
+.login-error.show{display:block}
+.login-hint{font-size:11px;color:var(--muted);text-align:center;margin-top:18px;line-height:1.6;background:rgba(255,255,255,.03);padding:10px;border-radius:8px}
+.login-hint code{color:var(--teal);font-family:var(--mono)}
+.topbar{background:var(--g2);height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;border-bottom:1px solid var(--border)}
+.topbar-left{display:flex;align-items:center;gap:14px}
+.logo-mark{width:32px;height:32px;background:var(--teal);border-radius:8px;display:flex;align-items:center;justify-content:center}
+.logo-mark svg{width:17px;height:17px}
+.logo-name{font-size:15px;font-weight:600;color:#fff}
+.logo-sub{font-size:11px;color:var(--muted)}
+.topbar-center{font-family:var(--mono);font-size:13px;color:var(--muted)}
+.topbar-center span{color:var(--teal);font-weight:500}
+.topbar-right{display:flex;align-items:center;gap:14px}
+.live-badge{display:flex;align-items:center;gap:6px;background:rgba(0,201,167,.12);border:1px solid rgba(0,201,167,.25);border-radius:20px;padding:4px 12px;font-size:11px;color:var(--teal);font-weight:500}
+.live-dot{width:7px;height:7px;background:var(--teal);border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.user-chip{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.06);border-radius:20px;padding:5px 14px 5px 6px;cursor:pointer;border:none;font-family:'Plus Jakarta Sans',sans-serif}
+.user-avatar{width:26px;height:26px;background:var(--teal);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#000}
+.user-name{font-size:12px;color:var(--text)}
+.stat-row{background:var(--g2);display:flex;padding:0 28px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.stat-item{padding:12px 28px 0 0;margin-right:28px;border-right:1px solid var(--border)}
+.stat-item:last-child{border:none}
+.stat-val{font-family:var(--mono);font-size:22px;font-weight:500;color:#fff}
+.stat-val.teal{color:var(--teal)}.stat-val.gold{color:var(--gold)}.stat-val.red{color:var(--red)}
+.stat-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-top:1px}
+.main{display:grid;grid-template-columns:380px 1fr;min-height:calc(100vh - 60px - 56px)}
+.left-panel{background:var(--g2);border-right:1px solid var(--border);overflow-y:auto;max-height:calc(100vh - 116px)}
+.left-panel::-webkit-scrollbar{width:4px}
+.left-panel::-webkit-scrollbar-thumb{background:var(--border)}
+.panel-section{border-bottom:1px solid var(--border)}
+.panel-header{padding:18px 22px 12px;display:flex;align-items:center;justify-content:space-between}
+.panel-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
+.panel-action{font-size:12px;color:var(--teal);cursor:pointer;font-weight:600;background:none;border:none;font-family:'Plus Jakarta Sans',sans-serif}
+.doctor-list{padding:0 14px 14px;display:flex;flex-direction:column;gap:9px}
+.doctor-card{border:1.5px solid var(--border);border-radius:12px;padding:14px}
+.doctor-card.off{opacity:.55}
+.doctor-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.doctor-info{display:flex;align-items:center;gap:10px}
+.doctor-avatar{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0}
+.doctor-name{font-size:13.5px;font-weight:600;color:#fff}
+.doctor-dept{font-size:11px;color:var(--muted)}
+.avail-toggle{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted)}
+.toggle{position:relative;width:38px;height:21px}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:rgba(255,255,255,.15);border-radius:11px;cursor:pointer;transition:background .2s}
+.toggle-slider::before{content:'';position:absolute;width:15px;height:15px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:transform .2s}
+.toggle input:checked+.toggle-slider{background:var(--teal)}
+.toggle input:checked+.toggle-slider::before{transform:translateX(17px)}
+.slots-row{display:flex;gap:5px;flex-wrap:wrap}
+.slot-chip{font-family:var(--mono);font-size:10.5px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--muted)}
+.slot-chip.av{color:var(--teal);border-color:rgba(0,201,167,.3)}
+.slot-chip.bl{color:var(--red);border-color:rgba(255,107,107,.3);text-decoration:line-through}
+.slot-count{font-size:10px;color:var(--muted);margin-top:8px;font-family:var(--mono)}
+.add-form{padding:0 14px 18px}
+.form-grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:10px}
+.ff label{display:block;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+.ff input,.ff select{width:100%;padding:9px 11px;border:1.5px solid var(--border);border-radius:8px;font-size:12.5px;color:var(--text);background:rgba(255,255,255,.05);outline:none;font-family:'Plus Jakarta Sans',sans-serif}
+.ff input:focus,.ff select:focus{border-color:var(--teal)}
+.ff select option{background:#1a2f45}
+.btn-sm-full{width:100%;padding:10px;background:var(--teal);color:#000;border:none;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif}
+.btn-sm-full:hover{background:var(--teal-d)}
+.time-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
+.time-btn{font-family:var(--mono);font-size:11px;padding:8px 4px;border-radius:7px;border:1.5px solid var(--border);background:rgba(255,255,255,.04);color:var(--muted);cursor:pointer;text-align:center}
+.time-btn:hover{border-color:var(--teal)}
+.time-btn.selected{background:var(--teal);border-color:var(--teal);color:#000;font-weight:700}
+.time-btn.blk{background:rgba(255,107,107,.08);border-color:rgba(255,107,107,.25);color:var(--red)}
+.slot-actions{display:flex;gap:8px}
+.btn-half{flex:1;padding:9px;border-radius:8px;font-size:11.5px;font-weight:700;border:1.5px solid;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif}
+.btn-block{background:rgba(255,107,107,.08);border-color:rgba(255,107,107,.3);color:var(--red)}
+.btn-unblock{background:var(--teal-p);border-color:rgba(0,201,167,.3);color:var(--teal)}
+.right-panel{display:flex;flex-direction:column;overflow:hidden}
+.view-tabs{background:var(--g2);border-bottom:1px solid var(--border);padding:12px 24px 0;display:flex;gap:6px}
+.view-tab{padding:10px 18px;font-size:13px;font-weight:600;color:var(--muted);background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;font-family:'Plus Jakarta Sans',sans-serif}
+.view-tab.active{color:var(--teal);border-bottom-color:var(--teal)}
+.view-content{flex:1;overflow-y:auto;padding:20px 24px}
+.view-content::-webkit-scrollbar{width:5px}
+.view-content::-webkit-scrollbar-thumb{background:var(--border)}
+.view-section{display:none}
+.view-section.active{display:block}
+.filter-bar{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+.filter-bar input,.filter-bar select{padding:9px 14px;border:1.5px solid var(--border);border-radius:9px;font-size:13px;background:rgba(255,255,255,.04);color:var(--text);outline:none;font-family:'Plus Jakarta Sans',sans-serif}
+.filter-bar input{flex:1;min-width:180px}
+.filter-bar select option{background:#1a2f45}
+.filter-bar input:focus,.filter-bar select:focus{border-color:var(--teal)}
+.btn-export{padding:9px 16px;border-radius:9px;font-size:12.5px;font-weight:600;border:1.5px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif}
+.btn-export:hover{border-color:var(--teal);color:var(--teal)}
+.doctor-group{margin-bottom:24px;border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.doctor-group-header{background:rgba(255,255,255,.04);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.dgh-left{display:flex;align-items:center;gap:10px}
+.dgh-avatar{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff}
+.dgh-name{font-size:14px;font-weight:600;color:#fff}
+.dgh-dept{font-size:11px;color:var(--muted)}
+.dgh-count{font-family:var(--mono);font-size:12px;color:var(--teal);background:var(--teal-p);padding:3px 10px;border-radius:14px}
+table{width:100%;border-collapse:collapse}
+thead th{background:rgba(255,255,255,.03);padding:9px 14px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);text-align:left}
+tbody tr{border-top:1px solid var(--border);transition:background .15s}
+tbody tr:hover{background:rgba(255,255,255,.03)}
+tbody tr.new-entry{animation:slideIn .5s ease}
+@keyframes slideIn{from{background:var(--teal-p);opacity:0;transform:translateY(-4px)}to{background:transparent;opacity:1;transform:translateY(0)}}
+td{padding:10px 14px;font-size:13px;color:var(--text);vertical-align:middle}
+td.token{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+td.name{font-weight:500}
+td.time-cell{font-family:var(--mono);font-size:12px}
+.status-pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:10.5px;font-weight:700}
+.status-confirmed{background:rgba(0,201,167,.15);color:var(--teal)}
+.status-pending{background:rgba(245,197,66,.12);color:var(--gold)}
+.status-arrived{background:rgba(100,150,255,.15);color:#88aaff}
+.status-done{background:rgba(255,255,255,.06);color:var(--muted)}
+.status-cancelled{background:var(--red-p);color:var(--red)}
+.status-postponed{background:rgba(245,197,66,.12);color:var(--gold)}
+.action-btns{display:flex;gap:5px;flex-wrap:wrap}
+.mini-btn{padding:5px 10px;border-radius:6px;font-size:10.5px;font-weight:600;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif}
+.mini-btn:hover{border-color:var(--teal);color:var(--teal)}
+.mini-btn.arrived{border-color:rgba(100,150,255,.3);color:#88aaff}
+.mini-btn.done{color:var(--muted)}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 40px;color:var(--muted);gap:10px}
+.empty-icon{font-size:40px;opacity:.4}
+.empty-title{font-size:15px;font-weight:600;color:var(--text)}
+.empty-sub{font-size:12.5px;text-align:center;max-width:260px;line-height:1.6}
+.q-item{display:flex;gap:14px;padding:12px 0;border-bottom:1px solid var(--border);align-items:flex-start}
+.q-item:last-child{border:none}
+.q-from{font-size:12px;font-weight:600;color:var(--text);min-width:130px}
+.q-dept-tag{font-size:10px;color:var(--muted);font-weight:400}
+.q-text{font-size:12.5px;color:var(--text);flex:1;line-height:1.5;font-style:italic;opacity:.85}
+.q-reply-btn{font-size:11px;color:var(--teal);background:var(--teal-p);border:none;padding:5px 12px;border-radius:7px;cursor:pointer;white-space:nowrap;font-family:'Plus Jakarta Sans',sans-serif}
+.reason-note{font-size:11px;color:var(--gold);margin-top:2px;font-style:italic}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--g3);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;display:flex;align-items:center;gap:10px;z-index:999;transform:translateY(80px);opacity:0;transition:all .3s;box-shadow:0 4px 24px rgba(0,0,0,.4);border:1px solid var(--border)}
+.toast.show{transform:translateY(0);opacity:1}
+@media(max-width:900px){.main{grid-template-columns:1fr}.left-panel{max-height:480px}.topbar-center{display:none}}
+</style>
+</head>
+<body>
+
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-cross"><svg viewBox="0 0 18 18" fill="none"><rect x="7" y="1" width="4" height="16" rx="2" fill="black"/><rect x="1" y="7" width="16" height="4" rx="2" fill="black"/></svg></div>
+    </div>
+    <div class="login-title">Reception Dashboard</div>
+    <div class="login-sub">QuickCare Access Only</div>
+    <div class="login-field"><label>Username</label><input type="text" id="loginUser" placeholder="reception" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+    <div class="login-field"><label>Password</label><input type="password" id="loginPass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+    <button class="login-btn" onclick="doLogin()">Sign in →</button>
+    <div class="login-error" id="loginError">Incorrect username or password.</div>
+    <div class="login-hint">Demo credentials — Username: <code>reception</code> · Password: <code>carebot123</code></div>
+  </div>
+</div>
+
+<div id="dashboardApp" style="display:none">
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="logo-mark"><svg viewBox="0 0 18 18" fill="none"><rect x="7" y="1" width="4" height="16" rx="2" fill="black"/><rect x="1" y="7" width="16" height="4" rx="2" fill="black"/></svg></div>
+    <div><div class="logo-name">QuickCare Dashboard</div><div class="logo-sub">Central Desk Control</div></div>
+  </div>
+  <div class="topbar-center">Today: <span id="topDate">—</span> &nbsp;|&nbsp; <span id="topTime">—</span></div>
+  <div class="topbar-right">
+    <div class="live-badge"><div class="live-dot"></div>Live Network Active</div>
+    <button class="user-chip" onclick="doLogout()"><div class="user-avatar">RC</div><div class="user-name">Reception · Sign out</div></button>
+  </div>
+</div>
+
+<div class="stat-row">
+  <div class="stat-item"><div class="stat-val teal" id="statTotal">0</div><div class="stat-lbl">Today's bookings</div></div>
+  <div class="stat-item"><div class="stat-val" id="statConfirmed">0</div><div class="stat-lbl">Confirmed</div></div>
+  <div class="stat-item"><div class="stat-val gold" id="statPostponed">0</div><div class="stat-lbl">Postponed</div></div>
+  <div class="stat-item"><div class="stat-val red" id="statCancelled">0</div><div class="stat-lbl">Cancelled</div></div>
+  <div class="stat-item"><div class="stat-val teal" id="statDoctors">0</div><div class="stat-lbl">Doctors on duty</div></div>
+</div>
+
+<div class="main">
+  <div class="left-panel">
+    <div class="panel-section">
+      <div class="panel-header"><div class="panel-title">Doctors on duty</div><button class="panel-action" onclick="toggleAddForm()">+ Add doctor</button></div>
+      <div class="doctor-list" id="doctorList"></div>
+      <div class="add-form" id="addForm" style="display:none">
+        <div class="form-grid2">
+          <div class="ff"><label>Doctor name</label><input type="text" id="newDocName" placeholder="Dr. Priya Sharma"/></div>
+          <div class="ff"><label>Department</label>
+            <select id="newDocDept">
+              <option>Cardiology</option><option>Orthopaedics</option><option>Neurology</option>
+              <option>Ophthalmology</option><option>Dental</option><option>General Medicine</option>
+              <option>Paediatrics</option><option>Dermatology</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn-sm-full" onclick="addDoctor()">Add to roster</button>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-header"><div class="panel-title">Manage time slots</div></div>
+      <div class="add-form">
+        <div class="ff" style="margin-bottom:10px"><label>Select doctor</label><select id="slotDocSelect" onchange="renderTimeGrid()"><option value="">— choose a doctor —</option></select></div>
+        <div class="time-grid" id="timeGrid"></div>
+        <div class="slot-actions">
+          <button class="btn-half btn-block" onclick="applySlotAction('block')">Block selected</button>
+          <button class="btn-half btn-unblock" onclick="applySlotAction('unblock')">Unblock selected</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="right-panel">
+    <div class="view-tabs">
+      <button class="view-tab active" onclick="switchView('active',this)">📋 Active appointments</button>
+      <button class="view-tab" onclick="switchView('postponed',this)">🔄 Postponed</button>
+      <button class="view-tab" onclick="switchView('cancelled',this)">✕ Cancelled</button>
+      <button class="view-tab" onclick="switchView('questions',this)">❓ Patient questions</button>
+    </div>
+
+    <div class="view-content">
+      <div class="view-section active" id="view-active">
+        <div class="filter-bar">
+          <input type="text" id="searchInput" placeholder="Search patient name, phone or token…" oninput="renderActiveView()"/>
+          <select id="dateFilter" onchange="renderActiveView()"></select>
+          <button class="btn-export" onclick="exportCSV()">↓ Export CSV</button>
+        </div>
+        <div id="doctorGroups"></div>
+      </div>
+
+      <div class="view-section" id="view-postponed">
+        <div id="postponedTableWrap"></div>
+      </div>
+
+      <div class="view-section" id="view-cancelled">
+        <div id="cancelledTableWrap"></div>
+      </div>
+
+      <div class="view-section" id="view-questions">
+        <div id="questionsList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="toast" id="toast"><span id="toastIcon">✅</span><span id="toastMsg">Saved</span></div>
+
+<script>
+// ── AUTH LOGIC
+const VALID_USER='reception', VALID_PASS='carebot123';
+function doLogin(){
+  const u=document.getElementById('loginUser').value.trim();
+  const p=document.getElementById('loginPass').value;
+  if(u===VALID_USER&&p===VALID_PASS){
+    sessionStorage.setItem('cb_authed','1');
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('dashboardApp').style.display='block';
+    initDashboard();
+  }else{
+    document.getElementById('loginError').classList.add('show');
+  }
+}
+function doLogout(){ sessionStorage.removeItem('cb_authed'); location.reload(); }
+if(sessionStorage.getItem('cb_authed')==='1'){
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('dashboardApp').style.display='block';
+}
+
+// ── CONNECT LIVE API LAYERS
+const BACKEND_URL = 'http://localhost:3000';
+const socket = io(BACKEND_URL);
+
+const SLOT_HOURS=['09:00','10:00','11:00','12:00','14:00','15:00','16:00','17:00','18:00'];
+const MAX_PER_SLOT=10;
+
+let activeView='active';
+let knownTokens=new Set();
+let selectedSlots=[];
+
+function fmtSlot(h){
+  const [hr,mn]=h.split(':').map(Number);
+  const suffix=hr<12?'AM':'PM';
+  const d=hr%12||12;
+  return `${d}:${mn.toString().padStart(2,'0')} ${suffix}`;
+}
+function fmtDate(iso){ return new Date(iso+'T00:00:00').toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'}); }
+
+function updateClock(){
+  const now=new Date();
+  document.getElementById('topDate').textContent=now.toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('topTime').textContent=now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+// ── API INTERACTION FUNCTIONS
+async function getDoctors() { return await (await fetch(`${BACKEND_URL}/api/doctors`)).json(); }
+async function getAppts() { return await (await fetch(`${BACKEND_URL}/api/appointments`)).json(); }
+async function saveDoctors(list) {
+  await fetch(`${BACKEND_URL}/api/doctors`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(list)
+  });
+}
+
+async function renderDoctors(){
+  const doctors = await getDoctors();
+  const appts = await getAppts();
+  const list=document.getElementById('doctorList');
+  const sel=document.getElementById('slotDocSelect');
+  const curSel=sel.value;
+  sel.innerHTML='<option value="">— choose a doctor —</option>';
+
+  if(!doctors.length){list.innerHTML='<div style="padding:12px 8px;font-size:13px;color:var(--muted)">No doctors added yet.</div>';return;}
+
+  list.innerHTML=doctors.map(d=>{
+    const todayBooked=appts.filter(a=>a.dept===d.dept&&a.status==='Confirmed').map(a=>a.time);
+    const slotCounts={};
+    todayBooked.forEach(t=>slotCounts[t]=(slotCounts[t]||0)+1);
+    const avail=SLOT_HOURS.filter(s=>!d.blockedSlots.includes(s)&&(slotCounts[s]||0)<MAX_PER_SLOT);
+    const blocked=d.blockedSlots;
+    return `<div class="doctor-card ${d.available?'':'off'}">
+      <div class="doctor-top">
+        <div class="doctor-info">
+          <div class="doctor-avatar" style="background:${d.color}">${d.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
+          <div><div class="doctor-name">${d.name}</div><div class="doctor-dept">${d.dept}</div></div>
+        </div>
+        <div class="avail-toggle">
+          <span>${d.available?'On duty':'Off duty'}</span>
+          <label class="toggle"><input type="checkbox" ${d.available?'checked':''} onchange="toggleDoc(${d.id},this.checked)"/><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+      <div class="slots-row">
+        ${avail.slice(0,5).map(s=>`<span class="slot-chip av">${fmtSlot(s)}</span>`).join('')}
+        ${blocked.slice(0,3).map(s=>`<span class="slot-chip bl">${fmtSlot(s)}</span>`).join('')}
+        ${avail.length>5?`<span style="font-size:10px;color:var(--muted);align-self:center">+${avail.length-5} more</span>`:''}
+      </div>
+      <div class="slot-count">${avail.length} open · ${blocked.length} blocked</div>
+    </div>`;
+  }).join('');
+
+  doctors.forEach(d=>{
+    const opt=document.createElement('option');
+    opt.value=d.id; opt.textContent=`${d.name} (${d.dept})`;
+    sel.appendChild(opt);
+  });
+  sel.value=curSel;
+  document.getElementById('statDoctors').textContent=doctors.filter(d=>d.available).length;
+}
+
+async function toggleDoc(id,val){
+  const doctors = await getDoctors();
+  const doc=doctors.find(d=>d.id===id);
+  if(doc){
+    doc.available=val;
+    await saveDoctors(doctors);
+    showToast(`${doc.name} marked ${val?'on duty':'off duty'}`,'✅');
+  }
+}
+function toggleAddForm(){const f=document.getElementById('addForm');f.style.display=f.style.display==='none'?'block':'none';}
+
+async function addDoctor(){
+  const name=document.getElementById('newDocName').value.trim();
+  const dept=document.getElementById('newDocDept').value;
+  if(!name){showToast('Enter a doctor name','⚠️');return;}
+  const doctors = await getDoctors();
+  const colors=['#e05252','#4a7c6f','#c8973a','#5566cc','#8844aa','#cc6644'];
+  const id=Math.max(0,...doctors.map(d=>d.id))+1;
+  doctors.push({id,name,dept,color:colors[doctors.length%colors.length],available:true,blockedSlots:[]});
+  await saveDoctors(doctors);
+  document.getElementById('newDocName').value='';
+  document.getElementById('addForm').style.display='none';
+}
+
+async function renderTimeGrid(){
+  const docId=parseInt(document.getElementById('slotDocSelect').value);
+  const grid=document.getElementById('timeGrid');
+  selectedSlots=[];
+  if(!docId){grid.innerHTML='<div style="font-size:11.5px;color:var(--muted);grid-column:1/-1;padding:6px 0">Select a doctor above</div>';return;}
+  const doctors = await getDoctors();
+  const doc=doctors.find(d=>d.id===docId);
+  grid.innerHTML=SLOT_HOURS.map(slot=>{
+    const isBlocked=doc.blockedSlots.includes(slot);
+    return `<button class="time-btn ${isBlocked?'blk':''}" onclick="toggleSlot(this,'${slot}')">${fmtSlot(slot)}</button>`;
+  }).join('');
+}
+
+function toggleSlot(el,slot){
+  el.classList.toggle('selected');
+  if(el.classList.contains('selected'))selectedSlots.push(slot);
+  else selectedSlots=selectedSlots.filter(s=>s!==slot);
+}
+
+async function applySlotAction(action){
+  const docId=parseInt(document.getElementById('slotDocSelect').value);
+  if(!docId||!selectedSlots.length){showToast('Select a doctor and time slots first','⚠️');return;}
+  const doctors = await getDoctors();
+  const doc=doctors.find(d=>d.id===docId);
+  if(action==='block'){
+    selectedSlots.forEach(s=>{if(!doc.blockedSlots.includes(s))doc.blockedSlots.push(s);});
+  }else{
+    doc.blockedSlots=doc.blockedSlots.filter(s=>!selectedSlots.includes(s));
+  }
+  await saveDoctors(doctors);
+  selectedSlots=[];
+  renderTimeGrid();
+}
+
+function switchView(view,btn){
+  activeView=view;
+  document.querySelectorAll('.view-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.view-section').forEach(s=>s.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('view-'+view).classList.add('active');
+  renderAll();
+}
+
+function buildDateFilterOptions(){
+  const sel=document.getElementById('dateFilter');
+  const cur=sel.value;
+  const days=[];
+  for(let i=-2;i<14;i++){const d=new Date();d.setDate(d.getDate()+i);days.push(d.toISOString().split('T')[0]);}
+  sel.innerHTML='<option value="">All dates</option>'+days.map(d=>`<option value="${d}" ${d===new Date().toISOString().split('T')[0]?'selected':''}>${fmtDate(d)}</option>`).join('');
+  if(cur)sel.value=cur;
+}
+
+async function renderActiveView(){
+  const search=document.getElementById('searchInput').value.toLowerCase();
+  const dateF=document.getElementById('dateFilter').value;
+  const doctors = await getDoctors();
+  const allAppts = await getAppts();
+  const appts=allAppts.filter(a=>a.status==='Confirmed'||a.status==='Arrived'||a.status==='Done');
+
+  let total=0;
+  const groupsHtml=doctors.map(doc=>{
+    let list=appts.filter(a=>a.dept===doc.dept);
+    if(dateF) list=list.filter(a=>a.date===dateF);
+    if(search) list=list.filter(a=>a.name.toLowerCase().includes(search)||a.phone.includes(search)||(a.token||'').toLowerCase().includes(search));
+    list.sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+    total+=list.length;
+
+    if(!list.length && (search||dateF)) return '';
+
+    const rows=list.map(a=>{
+      const isNew=!knownTokens.has(a.token);
+      const statusClass={Confirmed:'status-confirmed',Arrived:'status-arrived',Done:'status-done'}[a.status]||'status-confirmed';
+      return `<tr class="${isNew?'new-entry':''}">
+        <td class="token">${a.token}</td>
+        <td class="name">${a.name}${a.question?' <span title="Has question" style="color:var(--gold);font-size:10px">❓</span>':''}</td>
+        <td>${a.phone}</td>
+        <td>${fmtDate(a.date)}</td>
+        <td class="time-cell">${fmtSlot(a.time)}</td>
+        <td><span class="status-pill ${statusClass}">${a.status}</span></td>
+        <td>
+          <div class="action-btns">
+            ${a.status==='Confirmed'?`<button class="mini-btn arrived" onclick="setStatus('${a.token}','Arrived')">Arrived</button>`:''}
+            ${a.status!=='Done'?`<button class="mini-btn done" onclick="setStatus('${a.token}','Done')">Done</button>`:''}
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+
+    if(!list.length) return '';
+
+    return `<div class="doctor-group">
+      <div class="doctor-group-header">
+        <div class="dgh-left">
+          <div class="dgh-avatar" style="background:${doc.color}">${doc.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
+          <div><div class="dgh-name">${doc.name}</div><div class="dgh-dept">${doc.dept}</div></div>
+        </div>
+        <div class="dgh-count">${list.length} appointments</div>
+      </div>
+      <table>
+        <thead><tr><th>Token</th><th>Patient</th><th>Phone</th><th>Date</th><th>Time</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }).filter(Boolean).join('');
+
+  const container=document.getElementById('doctorGroups');
+  if(!total){
+    container.innerHTML=`<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No appointments found</div></div>`;
+  }else{
+    container.innerHTML=groupsHtml;
+  }
+  appts.forEach(a=>knownTokens.add(a.token));
+}
+
+async function renderStatusTable(status,wrapId,emptyMsg){
+  const allAppts = await getAppts();
+  const appts=allAppts.filter(a=>a.status===status);
+  const wrap=document.getElementById(wrapId);
+  if(!appts.length){
+    wrap.innerHTML=`<div class="empty-state"><div class="empty-icon">${status==='Cancelled'?'✕':'🔄'}</div><div class="empty-title">${emptyMsg}</div></div>`;
+    return;
+  }
+  appts.sort((a,b)=>new Date(b.bookedAt)-new Date(a.bookedAt));
+  const rows=appts.map(a=>{
+    const reasonLine = status==='Postponed'
+      ? `<div class="reason-note">Moved from ${a.prevDate?fmtDate(a.prevDate):''} → ${a.postponeReason?('"'+a.postponeReason+'"'):'No reason given'}</div>`
+      : `<div class="reason-note" style="color:var(--red)">Cancelled</div>`;
+    return `<tr>
+      <td class="token">${a.token}</td>
+      <td class="name">${a.name}<br/>${reasonLine}</td>
+      <td>${a.phone}</td>
+      <td>${a.dept}</td>
+      <td>${fmtDate(a.date)}</td>
+      <td class="time-cell">${fmtSlot(a.time)}</td>
+      <td><span class="status-pill status-${status.toLowerCase()}">${status}</span></td>
+    </tr>`;
+  }).join('');
+  wrap.innerHTML=`<table><thead><tr><th>Token</th><th>Patient</th><th>Phone</th><th>Dept</th><th>Date</th><th>Time</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+async function renderQuestions(){
+  const allAppts = await getAppts();
+  const qs=allAppts.filter(a=>a.question&&a.question.trim()&&a.status!=='Cancelled');
+  const list=document.getElementById('questionsList');
+  if(!qs.length){
+    list.innerHTML=`<div class="empty-state"><div class="empty-icon">❓</div><div class="empty-title">No questions submitted</div></div>`;
+    return;
+  }
+  list.innerHTML=qs.map(a=>`
+    <div class="q-item">
+      <div class="q-from">${a.name}<br/><span class="q-dept-tag">${a.dept} · ${fmtDate(a.date)} ${fmtSlot(a.time)}</span></div>
+      <div class="q-text">"${a.question}"</div>
+      <button class="q-reply-btn" onclick="showToast('Email sync interface tracking prototype active','📧')">Reply by email</button>
+    </div>`).join('');
+}
+
+async function setStatus(token,status){
+  await fetch(`${BACKEND_URL}/api/appointments/${token}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status })
+  });
+}
+
+async function updateStats(){
+  const appts = await getAppts();
+  const todayStr=new Date().toISOString().split('T')[0];
+  const today=appts.filter(a=>a.date===todayStr);
+  document.getElementById('statTotal').textContent=today.length;
+  document.getElementById('statConfirmed').textContent=today.filter(a=>a.status==='Confirmed'||a.status==='Arrived'||a.status==='Done').length;
+  document.getElementById('statPostponed').textContent=appts.filter(a=>a.status==='Postponed').length;
+  document.getElementById('statCancelled').textContent=appts.filter(a=>a.status==='Cancelled').length;
+}
+
+async function exportCSV(){
+  const appts = await getAppts();
+  const headers=['Token','Name','Phone','Department','Doctor','Date','Time','Status','Payment'];
+  const rows=appts.map(a=>[a.token,a.name,a.phone,a.dept,a.doctor||'',a.date,a.time,a.status,a.payment||'']);
+  const csv=[headers,...rows].map(r=>r.map(c=>`"${(c||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='appointments_'+new Date().toISOString().split('T')[0]+'.csv';a.click();
+}
+
+function showToast(msg,icon){
+  const t=document.getElementById('toast');
+  document.getElementById('toastMsg').textContent=msg;
+  document.getElementById('toastIcon').textContent=icon||'✅';
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3200);
+}
+
+function renderAll(){
+  renderDoctors();
+  renderActiveView();
+  renderStatusTable('Postponed','postponedTableWrap','No postponed appointments');
+  renderStatusTable('Cancelled','cancelledTableWrap','No cancelled appointments');
+  renderQuestions();
+  updateStats();
+}
+
+// ── LISTEN FOR LIVE SOCKET EVENTS FROM SERVER
+socket.on('NEW_APPOINTMENT', (appt) => {
+  showToast(`New booking: ${appt.name} · ${appt.dept}`, '🔔');
+  renderAll();
+});
+socket.on('STATUS_UPDATE', () => renderAll());
+socket.on('DOCTORS_UPDATE', () => { renderDoctors(); renderActiveView(); });
+
+function initDashboard(){
+  buildDateFilterOptions();
+  updateClock();
+  setInterval(updateClock,1000);
+  renderAll();
+}
+if(sessionStorage.getItem('cb_authed')==='1') initDashboard();
+</script>
+</body>
+</html>
