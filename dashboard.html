@@ -548,7 +548,7 @@ async function renderQuestions(){
     <div class="q-item">
       <div class="q-from">${a.name}<br/><span class="q-dept-tag">${a.dept} · ${fmtDate(a.date)} ${fmtSlot(a.time)}</span></div>
       <div class="q-text">"${a.question}"</div>
-      <button class="q-reply-btn" onclick="showToast('Email sync interface tracking prototype active','📧')">Reply by email</button>
+      <button class="q-reply-btn" onclick="window.replyEmail('${a.email}')">Reply by email</button>
     </div>`).join('');
 }
 
@@ -616,6 +616,40 @@ function initDashboard(){
   renderAll();
 }
 if(sessionStorage.getItem('cb_authed')==='1') initDashboard();
+window.replyEmail = async function(email) {
+    if (!email || email === 'undefined' || email === '') {
+        alert("No email address found for this patient!");
+        return;
+    }
+
+    // 1. Prompt the receptionist for their message
+    const message = prompt(`Type your email reply to (${email}):`);
+    if (!message) return; // Stop if they cancel
+
+    try {
+        // 2. Fetch call to your live Render backend
+        const response = await fetch(`${BACKEND_URL}/api/reply-email`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                to: email,
+                subject: "QuickCare Hospital - Update Inquiry Reply",
+                message: message
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert("✨ Email sent successfully to the patient!");
+        } else {
+            alert("❌ Failed to send email: " + data.error);
+        }
+    } catch (err) {
+        console.error("Email network error:", err);
+        alert("❌ Error connecting to email server.");
+    }
+};
 </script>
 </body>
 </html>
