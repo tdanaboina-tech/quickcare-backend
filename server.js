@@ -65,5 +65,11 @@ io.on('connection', (socket) => {
   console.log('⚡ Terminal Connected to QuickCare Network:', socket.id);
 });
 
-const PORT = 3000;
-server.listen(PORT, () => console.log(`🚀 QuickCare Engine live on http://localhost:${PORT}`));
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`🚀 QuickCare Engine live on port ${PORT}`);
+});
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`🚀 QuickCare Engine live on port ${PORT}`);
+});
