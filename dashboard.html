@@ -453,7 +453,7 @@ async function renderActiveView(){
   const dateF=document.getElementById('dateFilter').value;
   const doctors = await getDoctors();
   const allAppts = await getAppts();
-  const appts=allAppts.filter(a=>a.status==='Confirmed'||a.status==='Arrived'||a.status==='Done');
+  const appts=allAppts.filter(a => a.status === 'Confirmed' || a.status === 'Arrived' || a.status === 'Done' || a.status === 'Postponed' || a.status === 'Preponed');
 
   let total=0;
   const groupsHtml=doctors.map(doc=>{
@@ -604,6 +604,9 @@ socket.on('NEW_APPOINTMENT', (appt) => {
   renderAll();
 });
 socket.on('STATUS_UPDATE', () => renderAll());
+socket.on('APPOINTMENT_RESCHEDULED', () => {
+    renderAll();
+});
 socket.on('DOCTORS_UPDATE', () => { renderDoctors(); renderActiveView(); });
 
 function initDashboard(){
